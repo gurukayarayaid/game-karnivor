@@ -80,7 +80,7 @@
         answers: this.answerHistory,
         types: this.typeHistory.slice(-2),
       });
-      this.answerHistory.push(this.question.answer);
+      this.answerHistory.push(this.question.historyKey || this.question.answer);
       if (this.answerHistory.length > 12) this.answerHistory.shift();
       this.typeHistory.push(this.question.type);
       if (this.typeHistory.length > 8) this.typeHistory.shift();
@@ -207,7 +207,7 @@
         const remain = Math.max(0, 1 - this.roundTime / this.timeLimit);
         UI.updateTimer(remain);
         if (this.roundTime >= this.timeLimit) {
-          this.endRound(0, 'Jawaban: ' + this.question.answer.toUpperCase());
+          this.endRound(0, AJ.answerText(this.question));
         }
         return;
       }
@@ -242,7 +242,7 @@
         UI.setOptionPos(o.el, o.curX, o.y);
       }
       if (!alive && this.state === 'playing') {
-        this.endRound(0, 'Jawaban: ' + this.question.answer.toUpperCase());
+        this.endRound(0, AJ.answerText(this.question));
       }
     },
 
@@ -330,7 +330,7 @@
         UI.fxFloat(a.left + o.curX + o.w / 2, a.top + o.y + o.h / 2, '+' + pts, false);
         UI.updateScores();
         Sfx.correct();
-        this.endRound(player, '+' + pts + ' poin • jawaban ' + o.value.toUpperCase());
+        this.endRound(player, '+' + pts + ' poin • jawaban ' + AJ.optionText(o.value));
         return;
       }
 

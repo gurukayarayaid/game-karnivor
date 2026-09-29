@@ -1,8 +1,37 @@
 (function (global) {
   'use strict';
 
-  const AKSARA = ['ha', 'na', 'ca', 'ra', 'ka', 'da', 'ta', 'sa', 'wa', 'la', 'pa', 'ja', 'ya', 'nya', 'ga', 'nga', 'tha', 'dha', 'ma', 'ba'];
-  const ASSET_BASE = 'assets/aksara/';
+  const JENIS = {
+    herbivor: { id: 'herbivor', label: 'Herbivor', desc: 'makan tumbuhan' },
+    karnivor: { id: 'karnivor', label: 'Karnivor', desc: 'makan daging' },
+    omnivore: { id: 'omnivore', label: 'Omnivore', desc: 'makan tumbuhan & daging' },
+  };
+  const JENIS_HEWAN = ['herbivor', 'karnivor'];
+  const ASSET_BASE = 'assets/hewan/';
+  const IMG_EXT = '.jpg';
+
+  const HEWAN = [
+    { id: 'sapi', nama: 'Sapi', jenis: 'herbivor' },
+    { id: 'kambing', nama: 'Kambing', jenis: 'herbivor' },
+    { id: 'domba', nama: 'Domba', jenis: 'herbivor' },
+    { id: 'kelinci', nama: 'Kelinci', jenis: 'herbivor' },
+    { id: 'gajah', nama: 'Gajah', jenis: 'herbivor' },
+    { id: 'jerapah', nama: 'Jerapah', jenis: 'herbivor' },
+    { id: 'kuda', nama: 'Kuda', jenis: 'herbivor' },
+    { id: 'kerbau', nama: 'Kerbau', jenis: 'herbivor' },
+    { id: 'rusa', nama: 'Rusa', jenis: 'herbivor' },
+    { id: 'panda', nama: 'Panda', jenis: 'herbivor' },
+    { id: 'singa', nama: 'Singa', jenis: 'karnivor' },
+    { id: 'harimau', nama: 'Harimau', jenis: 'karnivor' },
+    { id: 'serigala', nama: 'Serigala', jenis: 'karnivor' },
+    { id: 'rubah', nama: 'Rubah', jenis: 'karnivor' },
+    { id: 'cheetah', nama: 'Cheetah', jenis: 'karnivor' },
+    { id: 'elang', nama: 'Elang', jenis: 'karnivor' },
+    { id: 'ular', nama: 'Ular', jenis: 'karnivor' },
+    { id: 'buaya', nama: 'Buaya', jenis: 'karnivor' },
+    { id: 'hiu', nama: 'Hiu', jenis: 'karnivor' },
+    { id: 'lumba', nama: 'Lumba-lumba', jenis: 'karnivor' },
+  ];
 
   const LEVELS = {
     mudah: { optionCount: 3, speed: 0.05, sway: 0.04 },
@@ -46,18 +75,38 @@
     return shuffle(arr).slice(0, n);
   }
 
+  function hewanById(id) {
+    for (const h of HEWAN) if (h.id === id) return h;
+    return null;
+  }
+
+  function imgSrc(id) {
+    return ASSET_BASE + id + IMG_EXT;
+  }
+
+  function labelOf(value) {
+    if (JENIS[value]) return JENIS[value].label;
+    const h = hewanById(value);
+    return h ? h.nama : value;
+  }
+
+  function optionText(value) {
+    const h = hewanById(value);
+    if (h) return h.nama + ' (' + JENIS[h.jenis].label + ')';
+    return labelOf(value);
+  }
+
+  function answerText(q) {
+    if (!q) return '';
+    if (q.type === 'foto') return 'Jawaban: ' + labelOf(q.answer);
+    return 'Jawaban: ' + optionText(q.answer);
+  }
+
   function createRound(cfg) {
     const level = LEVELS[cfg.level] ? cfg.level : DEFAULTS.level;
     const lvl = LEVELS[level];
-    const count = clamp(cfg.optionCount || lvl.optionCount, 2, AKSARA.length);
     const recent = (cfg.answers || []).slice(-4);
-    let pool = AKSARA.filter((a) => recent.indexOf(a) === -1);
-    if (pool.length < count) pool = shuffle(AKSARA);
-    const answer = pick(pool);
-    const others = shuffle(AKSARA.filter((a) => a !== answer));
-    const distractors = others.slice(0, count - 1);
-
-    const allowed = cfg.allowedTypes && cfg.allowedTypes.length ? cfg.allowedTypes : ['img', 'text'];
+    const allowed = cfg.allowedTypes && cfg.allowedTypes.length ? cfg.allowedTypes : ['foto', 'cari'];
     const history = cfg.types || [];
     let type = pick(allowed);
     if (history.length >= 2 && history[0] === history[1] && allowed.length > 1) {
@@ -65,12 +114,26 @@
       type = alt.length ? pick(alt) : type;
     }
 
+    if (type === 'foto') {
+      const pool = HEWAN.filter((h) => recent.indexOf(h.id) === -1);
+      const h = pick(pool.length ? pool : HEWAN);
+      const options = shuffle(Object.keys(JENIS).map((v) => ({ value: v, correct: v === h.jenis })));
+      return { type, answer: h.jenis, historyKey: h.id, photo: h, options, level };
+    }
+
+    const jenis = pick(JENIS_HEWAN);
+    const lawanPool = HEWAN.filter((h) => h.jenis !== jenis);
+    const count = clamp(cfg.optionCount || lvl.optionCount, 2, 1 + lawanPool.length);
+    const benarPool = HEWAN.filter((h) => h.jenis === jenis && recent.indexOf(h.id) === -1);
+    const correct = pick(benarPool.length ? benarPool : HEWAN.filter((h) => h.jenis === jenis));
+    const lawan = shuffle(lawanPool.filter((h) => h.id !== correct.id));
+    const distractors = lawan.slice(0, count - 1);
     const options = shuffle([
-      { value: answer, correct: true },
-      ...distractors.map((d) => ({ value: d, correct: false })),
+      { value: correct.id, correct: true },
+      ...distractors.map((d) => ({ value: d.id, correct: false })),
     ]);
 
-    return { type, answer, options, level };
+    return { type, answer: correct.id, historyKey: correct.id, jenis, options, level };
   }
 
   function scoreCorrect(timeFrac, streak) {
@@ -537,8 +600,11 @@
   }
 
   global.AJ = {
-    AKSARA,
+    JENIS,
+    JENIS_HEWAN,
+    HEWAN,
     ASSET_BASE,
+    IMG_EXT,
     LEVELS,
     SCORE,
     DEFAULTS,
@@ -546,6 +612,11 @@
     pick,
     shuffle,
     sample,
+    hewanById,
+    imgSrc,
+    labelOf,
+    optionText,
+    answerText,
     createRound,
     scoreCorrect,
     dist3,

@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const SETTINGS_KEY = 'aj-gesture-battle-v1';
+  const SETTINGS_KEY = 'gh-hewan-battle-v1';
   const DEFAULT_SETTINGS = {
     p1: 'Pemain 1',
     p2: 'Pemain 2',

@@ -59,12 +59,12 @@
     buildBrand() {
       const box = this.get('brand-glyphs');
       if (!box || box.childElementCount) return;
-      const order = ['ha', 'na', 'ca', 'ra', 'ka', 'da', 'ta', 'sa', 'wa', 'la', 'pa', 'ja', 'ya', 'nya', 'ga', 'nga', 'tha', 'dha', 'ma', 'ba'];
+      const list = AJ.HEWAN.filter((h, i) => i % 2 === 0);
       const frag = document.createDocumentFragment();
-      for (const name of order) {
+      for (const h of list) {
         const img = document.createElement('img');
-        img.src = AJ.ASSET_BASE + name + '.png';
-        img.alt = name;
+        img.src = AJ.imgSrc(h.id);
+        img.alt = h.nama;
         frag.appendChild(img);
       }
       box.appendChild(frag);
@@ -146,13 +146,18 @@
       const hint = this.get('q-hint');
       if (roundEl) roundEl.textContent = String(roundNo);
       if (!main || !hint) return;
-      if (q.type === 'img') {
-        main.innerHTML = '';
-        main.textContent = q.answer.toUpperCase();
-        hint.innerHTML = 'Pilih <b>gambar aksara</b> yang berbunyi seperti ini';
+      if (q.type === 'foto') {
+        const h = q.photo;
+        main.innerHTML =
+          '<figure class="q-fig">' +
+          '<img class="q-photo" src="' + AJ.imgSrc(h.id) + '" alt="' + h.nama + '">' +
+          '<figcaption>' + h.nama + '</figcaption>' +
+          '</figure>';
+        hint.innerHTML = 'Pilih <b>jenis makanan</b> hewan ini';
       } else {
-        main.innerHTML = '<img src="' + AJ.ASSET_BASE + q.answer + '.png" alt="aksara">';
-        hint.innerHTML = 'Aksara ini berbunyi apa? Pilih <b>namanya</b>';
+        const j = AJ.JENIS[q.jenis];
+        main.innerHTML = '<span class="q-chip j-' + q.jenis + '">' + j.label.toUpperCase() + '</span>';
+        hint.innerHTML = 'Pilih <b>gambar hewan</b> yang ' + j.desc;
       }
     },
 
@@ -165,15 +170,29 @@
       badge.className = 'opt-num';
       badge.textContent = LETTERS[index] || '';
       el.appendChild(badge);
-      if (question.type === 'img') {
+      const value = question.options[index].value;
+      const h = AJ.hewanById(value);
+      if (h) {
+        el.classList.add('opt-photo');
         const img = document.createElement('img');
-        img.src = AJ.ASSET_BASE + question.options[index].value + '.png';
-        img.alt = question.options[index].value;
+        img.src = AJ.imgSrc(h.id);
+        img.alt = h.nama;
         el.appendChild(img);
+        const cap = document.createElement('span');
+        cap.className = 'opt-name';
+        cap.textContent = h.nama;
+        el.appendChild(cap);
       } else {
+        const j = AJ.JENIS[value];
+        el.classList.add('opt-jenis');
         const span = document.createElement('span');
         span.className = 'opt-text';
-        span.textContent = question.options[index].value.toUpperCase();
+        span.textContent = j ? j.label : value;
+        if (j) {
+          const sub = document.createElement('i');
+          sub.textContent = j.desc;
+          span.appendChild(sub);
+        }
         el.appendChild(span);
       }
       this.get('options').appendChild(el);

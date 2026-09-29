@@ -1,6 +1,7 @@
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import path from 'path';
+import fs from 'fs';
 
 const require = createRequire(import.meta.url);
 const dir = path.dirname(fileURLToPath(import.meta.url));
@@ -226,21 +227,54 @@ console.log('== dwell ==');
   ok(!r2.fired, 'target baru tidak langsung fired walau akumulasi lama');
 }
 
+console.log('== data hewan ==');
+{
+  eq(AJ.HEWAN.length, 20, 'total 20 hewan');
+  eq(AJ.HEWAN.filter((h) => h.jenis === 'herbivor').length, 10, '10 hewan herbivor');
+  eq(AJ.HEWAN.filter((h) => h.jenis === 'karnivor').length, 10, '10 hewan karnivor');
+  eq(new Set(AJ.HEWAN.map((h) => h.id)).size, 20, 'id hewan unik');
+  ok(AJ.HEWAN.every((h) => AJ.JENIS[h.jenis]), 'setiap hewan punya jenis makanan valid');
+  ok(AJ.JENIS_HEWAN.every((j) => AJ.JENIS[j]), 'jenis yang dipakai soal terdaftar');
+  for (const h of AJ.HEWAN) {
+    const file = path.join(dir, '..', 'assets', 'hewan', h.id + '.jpg');
+    ok(fs.existsSync(file), 'foto tersedia: ' + h.id + '.jpg');
+    eq(AJ.imgSrc(h.id), 'assets/hewan/' + h.id + '.jpg', 'path foto ' + h.id);
+    eq(AJ.labelOf(h.id), h.nama, 'label ' + h.id);
+  }
+  eq(AJ.labelOf('herbivor'), 'Herbivor', 'label jenis');
+}
+
 console.log('== createRound ==');
 {
-  let types = { img: 0, text: 0 };
+  let types = { foto: 0, cari: 0 };
   for (let i = 0; i < 1000; i++) {
     const r = AJ.createRound({ level: 'sedang' });
-    eq(r.options.length, 4, 'sedang punya 4 opsi');
+    ok(r.type === 'foto' || r.type === 'cari', 'type valid');
     eq(r.options.filter((o) => o.correct).length, 1, 'tepat 1 jawaban benar');
     ok(r.options.some((o) => o.correct && o.value === r.answer), 'jawaban ada di opsi');
     const vals = r.options.map((o) => o.value);
     eq(new Set(vals).size, vals.length, 'opsi unik');
-    ok(AJ.AKSARA.includes(r.answer), 'jawaban valid');
-    ok(r.type === 'img' || r.type === 'text', 'type valid');
+
+    if (r.type === 'foto') {
+      eq(r.options.length, 3, 'foto: 3 pilihan label jenis');
+      ok(r.options.every((o) => AJ.JENIS[o.value]), 'foto: opsi berupa label jenis makanan');
+      eq(r.answer, r.photo.jenis, 'foto: jawaban = jenis makanan hewan pada gambar');
+      ok(!!AJ.hewanById(r.photo.id), 'foto: gambar hewan valid');
+      eq(r.historyKey, r.photo.id, 'foto: riwayat memakai id hewan');
+    } else {
+      eq(r.options.length, 4, 'cari sedang: 4 opsi gambar');
+      ok(r.options.every((o) => AJ.hewanById(o.value)), 'cari: opsi berupa gambar hewan');
+      const h = AJ.hewanById(r.answer);
+      ok(h && h.jenis === r.jenis, 'cari: jawaban berjenis sama dengan soal');
+      ok(
+        r.options.filter((o) => !o.correct).every((o) => AJ.hewanById(o.value).jenis !== r.jenis),
+        'cari: semua pengecoh beda jenis makanan'
+      );
+      eq(r.historyKey, r.answer, 'cari: riwayat memakai id hewan');
+    }
     types[r.type]++;
   }
-  ok(types.img > 200 && types.text > 200, `tipe campuran acak (img=${types.img}, text=${types.text})`);
+  ok(types.foto > 200 && types.cari > 200, `tipe campuran acak (foto=${types.foto}, cari=${types.cari})`);
 }
 {
   const typeHistory = [];
@@ -249,7 +283,7 @@ console.log('== createRound ==');
   const answers = [];
   for (let i = 0; i < 300; i++) {
     const r = AJ.createRound({ level: 'sedang', answers, types: typeHistory.slice(-2) });
-    answers.push(r.answer);
+    answers.push(r.historyKey || r.answer);
     typeHistory.push(r.type);
     if (typeHistory.length >= 2 && typeHistory[i] === typeHistory[i - 1]) streakType++;
     else streakType = 0;
@@ -262,8 +296,8 @@ console.log('== createRound ==');
   let lastFourSame = false;
   for (let i = 0; i < 300; i++) {
     const r = AJ.createRound({ level: 'sulit', answers });
-    eq(r.options.length, 6, 'sulit punya 6 opsi');
-    answers.push(r.answer);
+    ok(r.options.length === 3 || r.options.length === 6, 'sulit: 3 opsi label atau 6 opsi gambar');
+    answers.push(r.historyKey || r.answer);
     if (i > 8) {
       const last4 = answers.slice(-5, -1);
       if (new Set(last4).size === 1) lastFourSame = true;
@@ -273,8 +307,14 @@ console.log('== createRound ==');
 }
 {
   for (const lvl of ['mudah', 'sedang', 'sulit']) {
-    const c = AJ.createRound({ level: lvl });
-    eq(c.options.length, AJ.LEVELS[lvl].optionCount, `level ${lvl} jumlah opsi`);
+    const fotoCounts = new Set();
+    const cariCounts = new Set();
+    for (let i = 0; i < 80; i++) {
+      const c = AJ.createRound({ level: lvl });
+      (c.type === 'foto' ? fotoCounts : cariCounts).add(c.options.length);
+    }
+    ok(fotoCounts.size > 0 && [...fotoCounts].every((n) => n === 3), `level ${lvl}: soal gambar selalu 3 label`);
+    ok(cariCounts.size === 1 && cariCounts.has(AJ.LEVELS[lvl].optionCount), `level ${lvl} jumlah opsi`);
   }
 }
 
