@@ -228,6 +228,7 @@
     applyMode();
     UI.setNames(settings.p1, settings.p2);
     UI.setSoundLabel(settings.sound);
+    UI.setFullscreenLabel(!!document.fullscreenElement);
     Sfx.enabled = !!settings.sound;
   }
 
@@ -333,6 +334,7 @@
     on('btn-recal', () => Wizard.start());
     on('btn-cal-skip', () => Wizard.skip());
     on('btn-full', toggleFullscreen);
+    on('btn-full2', toggleFullscreen);
     on('btn-sound', toggleSound);
     on('btn-mute2', toggleSound);
     on('btn-start', startGame);
@@ -362,6 +364,7 @@
       Game.refreshArena();
     });
     document.addEventListener('fullscreenchange', () => {
+      UI.setFullscreenLabel(!!document.fullscreenElement);
       setTimeout(() => {
         UI.measureCursors();
         Game.refreshArena();
